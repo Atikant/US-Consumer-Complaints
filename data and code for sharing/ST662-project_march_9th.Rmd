@@ -1,0 +1,94 @@
+---
+title: "ST662 project"
+author: "Susan Mooney"
+date: "09/03/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r warning=FALSE, echo=FALSE}
+suppressMessages(library(tidyverse))
+suppressMessages(library(ggplot2))
+suppressMessages(library(GGally))
+suppressMessages(library(plotly))
+suppressMessages(library(dendextend))
+suppressMessages(library(DendSer))
+suppressMessages(library(ISLR))
+suppressMessages(library(ggalt))
+suppressMessages(library(cowplot))
+suppressMessages(library(dplyr))
+suppressMessages(library(ggmap))
+suppressMessages(library(lubridate))
+suppressMessages(library(egg))
+suppressMessages(library(naniar))
+suppressMessages(library(magick))
+suppressMessages(library(extrafont))
+suppressMessages(library(ggTimeSeries))
+suppressMessages(library(png))
+suppressMessages(library(ggimage))
+suppressMessages(library(gganimate))
+suppressMessages(library(hrbrthemes))
+suppressMessages(library(gridExtra))
+
+```
+
+
+
+```{r eval=T} 
+complaints<- read.csv("complaints1.csv")
+
+```
+
+```{r}
+complaints$Date.received <- strptime(complaints$Date.received, format="%Y-%m-%d")
+complaints$Product <- as.factor(complaints$Product)
+complaints$Sub.product <- as.factor(complaints$Sub.product)
+complaints$Sub.issue <- as.factor(complaints$Sub.issue)
+complaints$State <- as.factor(complaints$State)
+
+complaints$Consumer.consent.provided. <- as.factor(complaints$Consumer.consent.provided.)
+complaints$Submitted.via <- as.factor(complaints$Submitted.via)
+complaints$Date.sent.to.company <- strptime(complaints$Date.sent.to.company, format="%Y-%m-%d")
+complaints$Timely.response. <- as.factor(complaints$Timely.response.)
+complaints$Consumer.disputed. <- as.factor(complaints$Consumer.disputed.)
+complaints$Company.response.to.consumer <- as.factor(complaints$Company.response.to.consumer)
+complaints$Issue <- as.factor(complaints$Issue)
+complaints$Company.public.response <- as.factor(complaints$Company.public.response)
+complaints$Company <- as.factor(complaints$Company)
+
+
+```
+some analysis
+
+```{r fig.width=8, fig.height=12}
+
+r <- data.frame(table(complaints$Company.response.to.consumer))
+r
+pl1 <- ggplot(data=r, aes(x=reorder(Var1, Freq),y=Freq))+geom_col()+coord_flip()
+
+pl1
+
+money <- filter(complaints, Company.response.to.consumer=="Closed with monetary relief")
+
+m <- data.frame(table(money$Product))
+
+pl2 <- ggplot(data=m, aes(x=reorder(Var1, Freq),y=Freq))+geom_col()+coord_flip()+ggtitle("Products which result in monetary refund to customers")
+pl2
+
+str(complaints)
+
+state <- complaints[,c('Complaint.ID', 'State')]
+t <- data.frame(table(state$State))
+c <- data.frame(complaints)
+#gg_miss_fct(c)
+
+pl3 <- ggplot(data=t, aes(x=reorder(Var1, Freq),y=Freq))+geom_col()+coord_flip()+ggtitle("States")
+pl3
+
+```
+

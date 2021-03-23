@@ -1,0 +1,320 @@
+---
+title: "ST662 Projcet"
+author: "Stephen Foley"
+date: "3/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## packages
+```{r echo = F}
+library(tidyverse)
+library(ggplot2)
+library(highcharter)
+library()
+library()
+library()
+library()
+library()
+library()
+library()
+library()
+library()
+
+```
+
+## reading in the data
+```{r}
+complaints <- read.csv('complaints1.csv')
+str(complaints)
+
+```
+
+
+
+# Data cleaning
+
+## merging duplicate credit reporting columns, filling in missing values for 'Credit reporting' sub.product
+```{r}
+complaints$Sub.product[complaints$Product == 'Credit reporting'] <- 'Credit reporting'
+
+complaints$Product[complaints$Product == 'Credit reporting'] <- 'Credit reporting, credit repair services, or other personal consumer reports'
+
+
+```
+
+## merging duplicate money transfer columns
+```{r}
+
+
+
+complaints$Product[complaints$Product == 'Money transfers'] <- 'Money transfer, virtual currency, or money service'	
+
+```
+
+
+## merging duplicate credit card columns, filling in missing values for 'Credit card' sub.product with cerd card
+```{r}
+
+complaints$Sub.product[complaints$Product == 'Credit card'] <- 'Credit card'
+
+complaints$Product[complaints$Product == 'Credit card'] <- 'Credit card or prepaid card'
+
+
+
+```
+
+
+## merging duplicate Payday loan columns, filling in missing values
+```{r}
+complaints$Sub.product[complaints$Product == 'Payday loan'] <- 'Payday loan'
+
+complaints$Product[complaints$Product == 'Payday loan'] <- 'Payday loan, title loan, or personal loan'
+
+
+```
+
+
+
+
+
+
+## recoding Company response to consumer column as either “Closed with monetary relief” or “Other”
+```{r}
+
+complaints$Company.response.to.consumer[complaints$Company.response.to.consumer != 'Closed with monetary relief'] <- 'Other'
+
+
+```
+
+
+## to replace missing values with NA
+```{r}
+complaints[complaints == ''] <- NA
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## to see which companies have the most complaints 
+```{r}
+top_com <- complaints %>% select(Company) %>%
+  group_by(Company) %>%
+  summarise(count = n()) %>% arrange(-count)
+
+```
+
+
+## to see what products have the most complaints
+```{r}
+table(complaints$Product)
+
+top_prod <- complaints %>% select(Product) %>%
+  group_by(Product) %>% 
+  summarise(count = n())
+
+AM <- top_prod %>% 
+  hchart('column',hcaes(x='Product',y='count', group='Product'),pointwidth=3)
+AM <- AM %>% hc_title(text = "Most common product complaints",
+                      style = list(fontWeight = "bold"),
+                      align = "center") %>%
+  hc_xAxis(title = list(text = ""),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "complaints"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = F)
+AM
+```
+
+## time series of complaints for top 10 companies (prep code)
+```{r}
+top_com_names <- top_com$Company[1:10]
+comt <- complaints %>% select(Date.received, Company) %>%
+  filter(str_detect(Company, top_com_names))
+
+
+
+comt$Date.received <- gsub("[[:punct:]]", "",comt$Date.received)
+comt$Date.received <- as.Date(comt$Date.received,"%Y%m%d")
+
+comt1 <- comt
+comt1$month <- strftime(as.POSIXct(comt$Date.received), "%m")
+comt1$year=strftime(as.POSIXct(comt$Date.received), "%Y")
+
+
+comt2 <- comt1
+comt2$Date <- as.POSIXct(paste(comt2$year, comt2$month, "01", sep = "-"),'GMT')
+comt2 <- comt2 %>% select(Date, Company) %>% 
+  group_by(Date, Company) %>%
+  summarise(count = n())
+comt2$Date <- as.Date(comt2$Date)
+comt2$Company <- as.factor(comt2$Company)
+
+
+
+
+```
+
+## time series of complaints for top 10 companies (plot code)
+```{r}
+A <- comt2 %>% hchart('line',hcaes(x=Date, y=count, group=Company))
+A <- A %>% 
+  hc_title(text = "Time series of complaints per company",
+           style = list(fontWeight = "bold"),
+           align = "center") %>%
+  hc_xAxis(title = list(text = "Date"),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Count"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(title = list(text= 'Company'),layout = "vertical", verticalAlign = 'middle',
+            align = "right") %>%
+  hc_tooltip(crosshairs = TRUE,
+             shared = TRUE, 
+             borderWidth = 4) %>% 
+  hc_exporting(enabled = TRUE)
+A
+
+
+```
+
+
+
+
+## time series of product complaints for all companies
+```{r}
+prodt <- complaints %>% select(Date.received, Product) 
+
+
+
+prodt$Date.received <- gsub("[[:punct:]]", "",prodt$Date.received)
+prodt$Date.received <- as.Date(prodt$Date.received,"%Y%m%d")
+
+prodt1 <- prodt
+prodt1$month <- strftime(as.POSIXct(prodt1$Date.received), "%m")
+prodt1$year=strftime(as.POSIXct(prodt1$Date.received), "%Y")
+
+
+prodt2 <- prodt1
+prodt2$Date <- as.POSIXct(paste(prodt2$year, prodt2$month, "01", sep = "-"),'GMT')
+prodt2 <- prodt2 %>% select(Date, Product) %>% 
+  group_by(Date, Product) %>%
+  summarise(count = n())
+prodt2$Date <- as.Date(prodt2$Date)
+prodt2$Product <- as.factor(prodt2$Product)
+
+
+A <- prodt2 %>% hchart('line',hcaes(x=Date, y=count, group=Product))
+A <- A %>% 
+  hc_title(text = "Time series of product complaints by type",
+           style = list(fontWeight = "bold"),
+           align = "center") %>%
+  hc_xAxis(title = list(text = "Date"),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Count"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = T) %>%
+  hc_tooltip(crosshairs = TRUE,
+             shared = TRUE, 
+             borderWidth = 4) %>% 
+  hc_exporting(enabled = TRUE)
+A
+
+
+```
+
+## to see which products are most commonly closed with monetary relief
+```{r}
+
+mont <- complaints %>% select( Product, Company.response.to.consumer)
+mont <- mont %>% group_by(Product, Company.response.to.consumer) %>%
+  summarise(count = n())
+mont$Product <- as.factor(mont$Product)
+mont$Company.response.to.consumer <- as.factor(mont$Company.response.to.consumer)
+
+
+mont1 <- mont %>% pivot_wider(names_from = Company.response.to.consumer, values_from = count)
+
+mont1 <- mont1 %>% rename(
+ Closed_with_monetary_relief =  `Closed with monetary relief` 
+)
+mont1 <- mont1 %>% group_by(Product) %>%
+  mutate(
+    prop = 100*(Closed_with_monetary_relief/( Closed_with_monetary_relief + Other ))
+  )
+
+AM <- mont1 %>% 
+  hchart('column',hcaes(x='Product',y='prop', group = 'Product'),pointwidth=5)
+AM <- AM %>% hc_title(text = "Proportion of products closed with monetary relief",
+                      style = list(fontWeight = "bold"),
+                      align = "center") %>%
+  hc_xAxis(title = list(text = ""),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Percentage %"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = F)
+AM
+
+```
+
+
+
+## stacked barplot of product complaint categories
+```{r}
+
+ice <- complaints %>% select(Date.received, Product)
+ice$Date.received <- gsub("[[:punct:]]", "",ice$Date.received)
+ice$Date.received <- as.Date(ice$Date.received,"%Y%m%d")
+
+
+ice1 <- ice
+ice1$year=strftime(as.POSIXct(ice1$Date.received), "%Y")
+str(ice1)
+
+
+ice1$Date <- as.POSIXct(paste(ice1$year, "01", "01", sep = "-"),'GMT')
+ice1 <- ice1 %>% select(Date, Product) %>% 
+  group_by(Date, Product) %>%
+  summarise(count = n())
+ice1$year <- as.Date(ice1$year)
+ice1$Product <- as.factor(ice1$Product)
+
+ggplot(ice1, aes(fill = Product, y=count, x= Date)) + 
+  geom_bar(position = 'fill', stat = 'identity') + 
+  scale_fill_viridis_d()
+
+
+```

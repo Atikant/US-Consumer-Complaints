@@ -1,0 +1,388 @@
+---
+title: "ST662 project"
+author: "Susan Mooney"
+date: " "
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r warning=FALSE, echo=FALSE}
+suppressMessages(library(tidyverse))
+suppressMessages(library(ggplot2))
+suppressMessages(library(GGally))
+suppressMessages(library(plotly))
+suppressMessages(library(dendextend))
+suppressMessages(library(DendSer))
+suppressMessages(library(ISLR))
+suppressMessages(library(ggalt))
+suppressMessages(library(cowplot))
+suppressMessages(library(dplyr))
+suppressMessages(library(ggmap))
+suppressMessages(library(lubridate))
+suppressMessages(library(egg))
+suppressMessages(library(naniar))
+suppressMessages(library(magick))
+suppressMessages(library(extrafont))
+suppressMessages(library(ggTimeSeries))
+suppressMessages(library(png))
+suppressMessages(library(ggimage))
+suppressMessages(library(gganimate))
+suppressMessages(library(hrbrthemes))
+suppressMessages(library(gridExtra))
+suppressMessages(library(highcharter))
+
+```
+
+
+
+```{r eval=T, echo=FALSE} 
+complaints<- read.csv("complaints2.csv")
+
+```
+
+```{r echo=FALSE}
+complaints$Date.received <- strptime(complaints$Date.received, format="%Y-%m-%d")
+complaints$Product <- as.factor(complaints$Product)
+complaints$Sub.product <- as.factor(complaints$Sub.product)
+complaints$Sub.issue <- as.factor(complaints$Sub.issue)
+complaints$State <- as.factor(complaints$State)
+
+complaints$Consumer.consent.provided. <- as.factor(complaints$Consumer.consent.provided.)
+complaints$Submitted.via <- as.factor(complaints$Submitted.via)
+complaints$Date.sent.to.company <- strptime(complaints$Date.sent.to.company, format="%Y-%m-%d")
+complaints$Timely.response. <- as.factor(complaints$Timely.response.)
+complaints$Consumer.disputed. <- as.factor(complaints$Consumer.disputed.)
+complaints$Company.response.to.consumer <- as.factor(complaints$Company.response.to.consumer)
+complaints$Issue <- as.factor(complaints$Issue)
+complaints$Company.public.response <- as.factor(complaints$Company.public.response)
+complaints$Company <- as.factor(complaints$Company)
+
+
+```
+
+
+
+```{r fig.width=8, fig.height=4, echo=FALSE, warning=FALSE}
+
+# r <- data.frame(table(complaints$Company.response.to.consumer))
+# r
+# pl1 <- ggplot(data=r, aes(x=reorder(Var1, Freq),y=Freq))+geom_col()+coord_flip()
+# 
+# pl1
+# 
+# money <- filter(complaints, Company.response.to.consumer=="Closed with monetary relief")
+# 
+# m <- data.frame(table(money$Product))
+# 
+# pl2 <- ggplot(data=m, aes(x=reorder(Var1, Freq),y=Freq))+geom_col()+coord_flip()+ggtitle("Products which result in monetary refund to customers")
+# pl2
+# 
+# str(complaints)
+# 
+# state <- complaints[,c('Complaint.ID', 'State')]
+# t <- data.frame(table(state$State))
+# c <- data.frame(complaints)
+# #gg_miss_fct(c)
+# 
+# pl3 <- ggplot(data=t, aes(x=reorder(Var1, Freq),y=Freq))+geom_col()+coord_flip()+ggtitle("States")
+# pl3
+
+```
+
+
+```{r fig.width=8, fig.height=4, echo=FALSE}
+
+ds <- subset(complaints, grepl("Struggling",complaints$Issue))
+
+#head(ds)
+
+data <- ds %>% select(Issue, Product) 
+dataTab <- table(data)
+dfdataTab <- as.data.frame(dataTab)
+dfdataTab <- filter(dfdataTab, Freq!=0)
+dfdataTab <- filter(dfdataTab, Product!='Credit reporting, credit repair services, or other personal consumer reports')
+
+pl01 <- ggplot(data=dfdataTab, aes(x=reorder(Issue, Freq),y=Freq, fill=Product))+geom_col()+coord_flip()+ggtitle("Categories relating to difficulties repaying loans")+ylab("") + theme(axis.title.y=element_blank()) + theme(axis.title.x=element_blank())+ theme(legend.position="right")
+pl01
+
+```
+
+
+
+```{r echo=FALSE, warning=FALSE}
+
+dsIssue <- ds %>% select(Date.received, Issue) 
+
+dsIssue$Date.received <- gsub("[[:punct:]]", "",dsIssue$Date.received)
+dsIssue$Date.received <- as.Date(dsIssue$Date.received,"%Y%m%d")
+
+dsIssue1 <- dsIssue
+dsIssue1$month <- strftime(as.POSIXct(dsIssue1$Date.received), "%m")
+dsIssue1$year=strftime(as.POSIXct(dsIssue1$Date.received), "%Y")
+
+
+dsIssue2 <- filter(dsIssue1, year<2021 & year>2018)
+dsIssue2$Date <- as.POSIXct(paste(dsIssue2$year, dsIssue2$month, "01", sep = "-"),'GMT')
+dsIssue2 <- dsIssue2 %>% select(Date, Issue) %>% 
+  group_by(Date, Issue) %>%
+  summarise(count = n())
+dsIssue2$Date <- as.Date(dsIssue2$Date)
+dsIssue2$Issue <- as.factor(dsIssue2$Issue)
+
+
+pl02 <- dsIssue2 %>% hchart('line',hcaes(x=Date, y=count, group=Issue))
+pl02 <- pl02 %>% 
+  hc_title(text = "Time series of complaints relating to Payment Issues",
+           style = list(fontWeight = "bold"),
+           align = "center") %>%
+  hc_xAxis(title = list(text = "Date"),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Count"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = T) %>%
+  hc_tooltip(crosshairs = TRUE,
+             shared = TRUE, 
+             borderWidth = 4) %>% 
+  hc_exporting(enabled = TRUE)
+pl02
+
+```
+
+```{r echo=FALSE}
+
+dsSI <- ds %>% select(Date.received, Sub.issue) 
+
+# Mortgage repayments do not have sub issues
+dsSI <- filter(dsSI, Sub.issue!='')
+
+dsSI$Date.received <- gsub("[[:punct:]]", "",dsSI$Date.received)
+dsSI$Date.received <- as.Date(dsSI$Date.received,"%Y%m%d")
+
+dsSI1 <- dsSI
+dsSI1$month <- strftime(as.POSIXct(dsSI1$Date.received), "%m")
+dsSI1$year=strftime(as.POSIXct(dsSI1$Date.received), "%Y")
+
+
+dsSI2 <- filter(dsSI1, year<2021 & year>2018)
+dsSI2$Date <- as.POSIXct(paste(dsSI2$year, dsSI2$month, "01", sep = "-"),'GMT')
+dsSI2 <- dsSI2 %>% select(Date, Sub.issue) %>% 
+  group_by(Date, Sub.issue) %>%
+  summarise(count = n())
+dsSI2$Date <- as.Date(dsSI2$Date)
+dsSI2$Sub.issue <- as.factor(dsSI2$Sub.issue)
+
+
+
+pl03 <- dsSI2 %>% hchart('line',hcaes(x=Date, y=count, group=Sub.issue))
+pl03 <- pl03 %>% 
+  hc_title(text = "Time series of complaints relating to Payment Sub Issues.  Excludes Mortgages.",
+           style = list(fontWeight = "bold"),
+           align = "center") %>%
+  hc_xAxis(title = list(text = "Date"),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Count"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = T) %>%
+  hc_tooltip(crosshairs = TRUE,
+             shared = TRUE, 
+             borderWidth = 4) %>% 
+  hc_exporting(enabled = TRUE)
+pl03
+
+```
+
+```{r echo=FALSE}
+
+dsMI <- ds %>% select(Date.received, Issue, Sub.product) 
+
+dsMI <- filter(dsMI, Issue=='Struggling to pay mortgage')
+
+dsMI$Date.received <- gsub("[[:punct:]]", "",dsMI$Date.received)
+dsMI$Date.received <- as.Date(dsMI$Date.received,"%Y%m%d")
+
+dsMI1 <- dsMI
+dsMI1$month <- strftime(as.POSIXct(dsMI1$Date.received), "%m")
+dsMI1$year=strftime(as.POSIXct(dsMI1$Date.received), "%Y")
+
+
+dsMI2 <- filter(dsMI1, year>2018 & year<2021)
+dsMI2$Date <- as.POSIXct(paste(dsMI2$year, dsMI2$month, "01", sep = "-"),'GMT')
+dsMI2 <- dsMI2 %>% select(Date,Sub.product) %>% 
+  group_by(Date, Sub.product) %>%
+  summarise(count = n())
+dsMI2$Date <- as.Date(dsMI2$Date)
+dsMI2$Sub.product <- as.factor(dsMI2$Sub.product)
+
+
+pl04 <- dsMI2 %>% hchart('line',hcaes(x=Date, y=count, group=Sub.product))
+pl04 <- pl04 %>% 
+  hc_title(text = "Products relating to Mortgage payment issues",
+           style = list(fontWeight = "bold"),
+           align = "center") %>%
+  hc_xAxis(title = list(text = "Date"),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Count"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = T) %>%
+  hc_tooltip(crosshairs = TRUE,
+             shared = TRUE, 
+             borderWidth = 4) %>% 
+  hc_exporting(enabled = TRUE)
+pl04
+
+```
+
+
+```{r echo=FALSE}
+#Look at issues by State (top 10 states)
+
+#Pareto
+
+dsStI <- ds %>% select(Date.received, Issue, State)
+tab <- data.frame(table(dsStI$State))
+dsStI <- data.frame(dsStI)
+
+tab <- filter(tab,Var1!='NA')
+tab <- filter(tab,Var1!='')
+tab <- arrange(tab, desc(Freq))[1:10,]
+#head(tab)
+
+top10states <- tab$Var1
+top10states <- as.character(top10states)
+#top10states
+
+#Time Series
+
+dsStI3 <- dsStI[dsStI$State %in% top10states,]
+
+dsStI3$Date.received <- gsub("[[:punct:]]", "",dsStI3$Date.received)
+dsStI3$Date.received <- as.Date(dsStI3$Date.received,"%Y%m%d")
+
+dsStI1 <- dsStI3
+dsStI1$month <- strftime(as.POSIXct(dsStI1$Date.received), "%m")
+dsStI1$year=strftime(as.POSIXct(dsStI1$Date.received), "%Y")
+
+
+dsStI2 <- filter(dsStI1,year>=2019 & year<2021)
+dsStI2$Date <- as.POSIXct(paste(dsStI2$year, dsStI2$month, "01", sep = "-"),'GMT')
+dsStI2 <- dsStI2 %>% select(Date,State) %>% 
+  group_by(Date, State) %>%
+  summarise(count = n())
+dsStI2$Date <- as.Date(dsStI2$Date)
+dsStI2$State <- as.factor(dsStI2$State)
+
+
+
+pl07 <- dsStI2 %>% hchart('line',hcaes(x=Date, y=count, group=State))
+pl07 <- pl07 %>% 
+  hc_title(text = "Top 10 States relating to repayment issues",
+           style = list(fontWeight = "bold"),
+           align = "center") %>%
+  hc_xAxis(title = list(text = "Date"),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Count"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = T) %>%
+  hc_tooltip(crosshairs = TRUE,
+             shared = TRUE, 
+             borderWidth = 4) %>% 
+  hc_exporting(enabled = TRUE)
+pl07
+
+
+```
+
+
+```{r echo=FALSE}
+
+
+#Look at issues by company (top 5 companies)
+
+#Pareto
+
+company11 <- ds %>% select(Date.received, Product, Company)
+company11tab <- data.frame(table(company11$Company))
+company12 <- data.frame(company11)
+
+company11tab <- filter(company11tab,Var1!='NA')
+company11tab <- filter(company11tab,Var1!='')
+company11tab <- arrange(company11tab, desc(Freq))[1:5,]
+#head(tab)
+
+top10companies <- company11tab$Var1
+top10companies <- as.character(top10companies)
+top10companies
+
+#Time Series
+
+comptime <- company12[company12$Company %in% top10companies,]
+
+comptime$Date.received <- gsub("[[:punct:]]", "",comptime$Date.received)
+comptime$Date.received <- as.Date(comptime$Date.received,"%Y%m%d")
+
+comptime1 <- comptime
+comptime1$month <- strftime(as.POSIXct(comptime1$Date.received), "%m")
+comptime1$year=strftime(as.POSIXct(comptime1$Date.received), "%Y")
+
+
+comptime2 <-  filter(comptime1,year>=2019 & year<2021)
+comptime2$Date <- as.POSIXct(paste(comptime2$year, comptime2$month, "01", sep = "-"),'GMT')
+comptime2 <- comptime2 %>% select(Date,Company) %>% 
+  group_by(Date, Company) %>%
+  summarise(count = n())
+comptime2$Date <- as.Date(comptime2$Date)
+comptime2$Company <- as.factor(comptime2$Company)
+
+
+
+pl13 <- comptime2 %>% hchart('line',hcaes(x=Date, y=count, group=Company))
+pl13 <- pl13 %>% 
+  hc_title(text = "Top 5 Companies relating to repayment issues",
+           style = list(fontWeight = "bold"),
+           align = "center") %>%
+  hc_xAxis(title = list(text = "Date"),
+           style = list(fontWeight = "bold")) %>%
+  hc_yAxis(title = list(text = "Count"),
+           style = list(fontWeight = "bold")) %>%
+  hc_legend(enabled = T) %>%
+  hc_tooltip(crosshairs = TRUE,
+             shared = TRUE, 
+             borderWidth = 4) %>% 
+  hc_exporting(enabled = TRUE)
+pl13
+
+```
+```{r echo=FALSE}
+
+
+
+company13 <- company12 %>% select(Product,Company) 
+company13Top5 <- company13[company13$Company %in% top10companies,]
+company13tab <- table(company13Top5)
+company13tab <- as.data.frame(company13tab)
+company13tab <- filter(company13tab, Freq!=0)
+
+pl14 <- ggplot(data=company13tab, aes(x=reorder(Company, Freq),y=Freq, fill=Product))+geom_col()+coord_flip()+ggtitle("Top 5 companies difficulties repaying loans")+ylab("") + theme(axis.title.y=element_blank()) + theme(axis.title.x=element_blank())+ theme(legend.position="right")
+pl14
+```
+
+
+Deeper look at Navient.  Note, there was a recent course ruling relating to Navient.  Can reference this.
+
+```{r echo=FALSE}
+navient <- filter(ds,Company=='Navient Solutions, LLC.')
+navient$year=strftime(as.POSIXct(navient$Date.received), "%Y")
+navient <- navient %>% select(Sub.issue, Issue, Product) 
+#head(navient)
+navTab <- as.data.frame(table(navient$Sub.issue))
+navTab <- filter(navTab, Freq!=0)
+navTab <- filter(navTab, Var1!='')
+arrange(navTab, desc(Freq))
+
+```
+

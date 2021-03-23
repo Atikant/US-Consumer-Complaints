@@ -1,0 +1,103 @@
+---
+title: "US map of complaints according to state"
+author: "Stephen Foley"
+date: "3/22/2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(highcharter)
+library(sf)
+library(purrr)
+library(tmap)
+library(ggrepel)
+
+```
+
+## reading in and preparing the data
+```{r}
+complaints <- read.csv('complaints2.csv')
+
+complaints1 <- complaints
+
+
+complaints1$State <- as.factor(complaints1$State)
+
+levels(complaints1$State) <- c( '1', '2', 'Alaska', 'Alabama', '3', 'Arkansas', 'American Samoa', 'Arizona', 
+              'California', 'Colorado', 'Connecticut','District of Columbia', 'Delaware', 'Florida',
+              'Micronesia', 'Georgia',  'Guam', 'Hawaii', 'Iowa', 'Idaho',  'Illinois', 'Indiana',
+               'Kansas',  'Kentucky',  'Louisiana', 'Massachusetts',  'Maryland',  'Maine', '4',  'Michigan' ,
+               'Minnesota',  'Missouri' ,  'Commonwealth of the Northern Mariana Islands' , 'Mississippi' ,  'Montana' , 
+              'North Carolina', 'North Dakota' , 'Nebraska' , 'New Hampshire' , 'New Jersey',  'New Mexico' , 
+               'Nevada',  'New York',  'Ohio' , 'Oklahoma',  'Oregon',  'Pennsylvania' ,  'Puerto Rico' ,  'Palau' ,  'Rhode Island',                'South Carolina' , 'South Dakota',  'Tennessee',  'Texas' , 'US MINOR OUTLYING ISLANDS',  'Utah',
+               'Virginia' , 'United States Virgin Islands' ,'Vermont',  'Washington' ,  'Wisconsin' , 'West Virginia' , 'Wyoming' )
+
+by_state <- complaints1 %>% select(State) %>% group_by(State) %>%
+  summarise(Total_Complaints = n())
+
+
+by_state <- by_state[-c(1,2,5,7,15,17,29,33,48,49,55,58,64),]
+
+
+
+```
+
+## reading in the state geographical data
+```{r}
+states <- st_read('us-state-boundaries.geojson')
+states1 <- states %>% select(name, stusab, geometry) %>%
+  rename(
+    State = name
+  ) %>% rename(
+    Abbreviation = stusab
+  )
+states1 <- states1[-c(1,2,19,25,46),]
+
+```
+
+
+## reading in the state populations data
+```{r}
+state_pop <- read.csv('state_populations_2000_to_2019.csv')
+state_pop <- state_pop %>% select(ï..state_name, pop_2019) %>%
+  rename(State = ï..state_name) %>%
+  rename(Population = pop_2019)
+
+```
+
+
+## merging the datasets
+```{r}
+
+by_state1 <- left_join(states1, by_state, by = 'State')
+by_state2 <- left_join(by_state1, state_pop, by = 'State')
+by_state2$Population <- as.numeric(by_state2$Population)
+
+```
+
+## creating new column with the number of complaints per 1000 people for each state
+```{r}
+by_state2$Complaints_per_1000 <- 1000*(by_state2$Total_Complaints/by_state2$Population)
+
+
+```
+
+
+## to create plots
+```{r}
+
+lc <- st_centroid(by_state2) %>% st_coordinates()
+lc <- tibble(x=lc[,1],y=lc[,2], name = by_state2$Abbreviation)
+
+
+ggplot(by_state2[-c(22,23),]) + geom_sf(col='white', aes(fill = Complaints_per_1000)) +
+  geom_label_repel(data=lc[-c(22,23),], aes(x=x, y=y, label=name), size=2)
+
+ggplot(by_state2[22,]) + geom_sf(col='white', aes(fill = Complaints_per_1000)) +
+  geom_label_repel(data=lc[22,], aes(x=x, y=y, label=name), size=2)
+
+ggplot(by_state2[23,]) + geom_sf(col='white', aes(fill = Complaints_per_1000)) +
+  geom_label_repel(data=lc[23,], aes(x=x, y=y, label=name), size=2)
+```
